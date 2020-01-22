@@ -2,5 +2,5 @@
   "database" : ":)",
   "ipc" : "/home/belvis/.ethereum/geth.ipc",
   "ws" : "http://localhost:8546",
-  "http" : "http://localhost:8545kl"
+  "http" : "http://localhost:8545"
 }
