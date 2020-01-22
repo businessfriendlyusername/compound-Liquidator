@@ -1,9 +1,8 @@
 {
   "database" : ":)",
-  "useIPC" : true,
+  "useIPC" : false,
   "ipc" : "/home/belvis/.ethereum/geth.ipc",
-  "ws" : "http://localhost:8546",
-  "http" : "http://localhost:8545",
+  "ws" : "wss://mainnet.infura.io/ws/v3/1e6dafd39f064e1cb74ca7e7115ef345",
   "loggingVerbosity" : "3",
   "logFile" : "./liq-watcher.log",
   "logToConsole" : true,

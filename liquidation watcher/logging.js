@@ -101,8 +101,4 @@ class Logger{
   }
 }
 
-var conf = fs.readFileSync(__dirname + '/initialization/config.json');
-const config = JSON.parse(conf);
-
-module.exports = new Logger(outputPath=config.logFile, console=config.logToConsole,
-  verbosity=config.loggingVerbosity);
+module.exports = Logger
