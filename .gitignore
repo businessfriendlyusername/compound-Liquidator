@@ -2,3 +2,4 @@
 **/node_modules
 *.py
 *.log
+doc_revisions.txt
