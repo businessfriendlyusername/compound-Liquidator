@@ -35,7 +35,7 @@ else{
   process.exit()
 }
 
-pullSetFromInfura = (fromBlock, toBlock) => {
+pullSetFromInfura = async (fromBlock, toBlock) => {
   return new Promise((resolve, reject) => {
     let accounts = new Set()
     let promises = []
@@ -55,14 +55,12 @@ pullSetFromInfura = (fromBlock, toBlock) => {
         })
       }))
     }
-    Promise.all(promises)
-    .then(() => {
-      resolve(accounts)
-    })
+    await Promise.all(promises)
+    resolve(accounts)
   })
 }
 
-pullSetFromNode = (fromBlock, toBlock) => {
+pullSetFromNode = async (fromBlock, toBlock) => {
   return new Promise((resolve, reject) => {
     let accounts = new Set()
     comptroller.getPastEvents('MarketEntered', {fromBlock: fromBlock, toBlock: toBlock})
@@ -80,7 +78,7 @@ pullSetFromNode = (fromBlock, toBlock) => {
   })
 }
 
-getAccountHealth = account => {
+scoreAccount = account => {
   
 }
 

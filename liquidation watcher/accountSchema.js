@@ -3,5 +3,9 @@ const Schema = mongoose.Schema
 
 const accountSchema = new Schema({
   address: String,
-  collateralizationRatio: Decimal128
+  balances: [{
+    cToken: String,
+    collateral: Number,
+    borrowed: Number
+  }],
 })
