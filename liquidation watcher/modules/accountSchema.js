@@ -9,3 +9,5 @@ const accountSchema = new Schema({
     borrowed: Number
   }],
 })
+
+module.exports = mongoose.model('account', accountSchema)
