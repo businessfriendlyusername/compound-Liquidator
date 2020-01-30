@@ -8,7 +8,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bignumber.js": "^9.0.0",
     "binary-search-insert": "^1.0.3",
+    "collections": "^5.1.9",
     "date-and-time": "^0.12.0",
     "mongoose": "^5.8.9",
     "nodemon": "^2.0.2",
