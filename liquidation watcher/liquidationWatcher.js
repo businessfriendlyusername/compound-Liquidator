@@ -14,17 +14,17 @@ comptroller.options.address = comptrollerABI.address
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Sync up accounts~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-var accountSet = init.accounts//the set of all compound accounts
-var accountsByHealth = []
-accountSet.forEach(account => {
-  
-})
 
+var count = 0
 
-newAccountEmitter = comptroller.events.MarketEntered({fromBlock: 9355000}).on('data', event => {
-  console.log(event)
-  accounts.add(event.address)
-})
+web3.eth.
+
+// newAccountEmitter = comptroller.events.MarketEntered({fromBlock: 9355000}).on('data', event => {
+//   console.log(event)
+//   accounts.add(event.address)
+//   count++
+//   console.log(count)
+// })
 
 // comptroller.getPastEvents('MarketEntered', {fromBlock: 0, toBlock: 'latest'}, (error, events) => {
 //   if(error) {

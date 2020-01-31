@@ -1,6 +1,6 @@
 const address = "0x1D8aEdc9E924730DD3f9641CDb4D1B92B848b4bd"
 
-const abi = `[
+const abi = [
   {
       "constant": true,
       "inputs": [],
@@ -551,7 +551,7 @@ const abi = `[
       "stateMutability": "nonpayable",
       "type": "function"
   }
-]`
+]
 
 module.exports = {
   address,
