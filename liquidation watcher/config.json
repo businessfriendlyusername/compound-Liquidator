@@ -1,5 +1,5 @@
 {
-  "database" : ":)",
+  "database" : "mongodb://localhost:27017/weatherLocalTest",
   "connectionType" : "infura",
   "ipc" : "/home/belvis/.ethereum/geth.ipc",
   "infura" : "wss://mainnet.infura.io/ws/v3/1e6dafd39f064e1cb74ca7e7115ef345",

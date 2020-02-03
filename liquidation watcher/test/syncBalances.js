@@ -4,8 +4,11 @@ const priceOracleContract = require('../contracts/priceOracleContract')
 const Web3 = require('web3')
 const net = require('net')
 
+const local = "ws://127.0.0.1:8546"
+const infura = "wss://mainnet.infura.io/ws/v3/1e6dafd39f064e1cb74ca7e7115ef345"
+const ipc = new Web3.providers.IpcProvider("/home/belvis/.ethereum/geth.ipc", net)
 const startingBlock = 7722506 //when the first compound contract deployed 
-const provider = new Web3("wss://mainnet.infura.io/ws/v3/1e6dafd39f064e1cb74ca7e7115ef345", net)
+const provider = ipc//new Web3(local, net)
 const web3 = new Web3(provider)
 
 const cZRX = new web3.eth.Contract(cTokens.cZRX.abi, cTokens.cZRX.address)
@@ -22,46 +25,67 @@ const priceOracle = new web3.eth.Contract(priceOracleContract.abi, priceOracleCo
 
 fullSync = () => {
 
-  
+  console.log('started')
+  getAllAddresses = blockToSyncTo => {
+    return new Promise((resolve, reject) => {
+      // let accounts = {}
+      // let promises = []
+      // let requests = 0
+      // for(var block = startingBlock; block <= blockToSyncTo; block++){
+      //   promises.push(comptroller.getPastEvents('MarketEntered', {fromBlock: block, toBlock: block})
+      //     .then((events, error) => {
+      //       console.log(events)
+      //       if(error) {
+      //         reject(`couldn't get past events from block: ${block}`)
+      //       }
+      //       var addresses = events.map(event => event.returnValues.account)
+      //       return addresses
+      //     })
+      //   )
+      // }
+      // Promise.all(promises)
+      comptroller.getPastEvents('MarketEntered', {fromBlock: startingBlock, toBlock: blockToSyncTo})
+      .then((events, error) => {
+        if(error) {
+          reject(`couldn't get past events from block: ${block}`)
+        }
+        var addresses = [...new Set(events.map(event => event.returnValues.account))]
+        console.log(addresses.length)
+        resolve(addresses)
+      })
+      // .then(twoDArray => {
+      //   console.log('got all addresses')
+      //   var flat = []//flatten 2d array of addresses
+      //   twoDArray.forEach(array => {
+      //     flat.push(...array)
+      //   })
+      //   resolve([...new Set(flat)])//return all unique addresses
+      // })
+    })
+  }
+
   web3.eth.getBlockNumber()
-  .then(blockToSyncTo => {
-    return new Promise((resolve, reject) => {//this promise returns all account balances on accounts that are 'in' at least one market
-      let accounts = {}
-      let promises = []
-      for(var block = 7722642; block <= 7722642; block++){
-        promises.push(comptroller.getPastEvents('MarketEntered', {fromBlock: block, toBlock: block})
-          .then((events, error) => {
-            if(error) {
-              reject(`couldn't get past events from block: ${block}`)
-            }
-            else {
-              events.forEach(event => {
-                if(!(event.address in accounts) && accounts[event.address] !== null){//this account has not been checked yet
-                  promises.push(getBalances(event.address)
-                    .then((balances, error) => {
-                      if(error){
-                        reject(`couldn't get balances for account: ${event.address}`)
-                      }
-                      else{
-                        //console.log(balances)
-                        accounts[event.address] = balances
-                      }
-                    })
-                  ) 
-                }
-              })
-            }
-          })
-        )
+  .then(getAllAddresses)
+  .then(addresses => {
+    //console.log(addresses.length)
+    let promises = []
+    addresses.forEach(address => {
+      promises.push(getBalancesOfAddress(address))
+    })
+    Promise.all(promises)
+    .then(balances => {
+      accounts = {}
+      for(var i = 0; i < balances.length; i++){
+        accounts[addresses[i]] = balances[i]
       }
-      Promise.all(promises)
-      .then(Promise.all(promises).then(() => resolve(accounts)))
+      //console.log(accounts)
+      console.log(Math.floor((Date.now() - start) / 1000))
     })
   })
-  .then(console.log)
 }
 
-getBalances = address => {
+getBalancesOfAddress = address => {
+  //console.log(address)
   return new Promise((resolve, reject) => {
     let balances = {}
     var promises = []
@@ -72,6 +96,7 @@ getBalances = address => {
       promises.push(
         cTokenContract.methods.balanceOf(address).call()
         .then(result => {
+          //console.log(result)
           balances[cToken.address]['cTokenBalance'] = result
         })
       )
@@ -83,6 +108,8 @@ getBalances = address => {
   })
 }
 
+const start = Date.now()
+console.log(start)
 
 
 web3.currentProvider.on("connect", fullSync)

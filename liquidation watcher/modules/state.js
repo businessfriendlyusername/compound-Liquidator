@@ -1,11 +1,15 @@
 const cTokens = require('../contracts/cTokens')
-const comptroller = require('../contracts/comptroller')
-const priceOracle = require('../contracts/priceOracle')
+const comptroller = require('../contracts/comptrollerContract')
+const priceOracle = require('../contracts/priceOracleContract')
 const sortedMap = require('collections/sorted-map')
 
 class State{
-  constructor(web3, logger, accounts, blockNumber){
+  //accounts is just an array of accounts that comply with accountSchema.js
+  //blockNumber is the last block everything was sync'd at
+  //liquidate is the function to be called when an underwater account is found
+  constructor(web3, logger, accounts, blockNumber, liquidate){
     this.web3 = web3
+    this.liquidate = liquidate
     this.logger = logger
     this.blockNumber = blockNumber
     this.accountList = new sortedMap()
@@ -39,17 +43,20 @@ class State{
 
   }
 
-  compare(left, right){
-
+  fullSync(){
+    this.web3.eth.getBlockNumber()
+    .then(blockToSyncTo => {
+      
+    })
   }
 
   sort(){
 
   }
+}
 
 
-  blockNumber,//the last block that was sync'd
-  collateralFactor,
-  closeFactor,
-  liquidationFactor,
+
+compare = (left, right) => {
+
 }
