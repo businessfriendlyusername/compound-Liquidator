@@ -23,93 +23,99 @@ const comptroller = new web3.eth.Contract(comptrollerContract.abi, comptrollerCo
 const priceOracle = new web3.eth.Contract(priceOracleContract.abi, priceOracleContract.address)
 
 
-fullSync = () => {
+// fullSync = () => {
 
-  console.log('started')
-  getAllAddresses = blockToSyncTo => {
-    return new Promise((resolve, reject) => {
-      // let accounts = {}
-      // let promises = []
-      // let requests = 0
-      // for(var block = startingBlock; block <= blockToSyncTo; block++){
-      //   promises.push(comptroller.getPastEvents('MarketEntered', {fromBlock: block, toBlock: block})
-      //     .then((events, error) => {
-      //       console.log(events)
-      //       if(error) {
-      //         reject(`couldn't get past events from block: ${block}`)
-      //       }
-      //       var addresses = events.map(event => event.returnValues.account)
-      //       return addresses
-      //     })
-      //   )
-      // }
-      // Promise.all(promises)
-      comptroller.getPastEvents('MarketEntered', {fromBlock: startingBlock, toBlock: blockToSyncTo})
-      .then((events, error) => {
-        if(error) {
-          reject(`couldn't get past events from block: ${block}`)
-        }
-        var addresses = [...new Set(events.map(event => event.returnValues.account))]
-        console.log(addresses.length)
-        resolve(addresses)
-      })
-      // .then(twoDArray => {
-      //   console.log('got all addresses')
-      //   var flat = []//flatten 2d array of addresses
-      //   twoDArray.forEach(array => {
-      //     flat.push(...array)
-      //   })
-      //   resolve([...new Set(flat)])//return all unique addresses
-      // })
-    })
-  }
+//   console.log('started')
+//   getAllAddresses = blockToSyncTo => {
+//     return new Promise((resolve, reject) => {
+//       // let accounts = {}
+//       // let promises = []
+//       // let requests = 0
+//       // for(var block = startingBlock; block <= blockToSyncTo; block++){
+//       //   promises.push(comptroller.getPastEvents('MarketEntered', {fromBlock: block, toBlock: block})
+//       //     .then((events, error) => {
+//       //       console.log(events)
+//       //       if(error) {
+//       //         reject(`couldn't get past events from block: ${block}`)
+//       //       }
+//       //       var addresses = events.map(event => event.returnValues.account)
+//       //       return addresses
+//       //     })
+//       //   )
+//       // }
+//       // Promise.all(promises)
+//       comptroller.getPastEvents('MarketEntered', {fromBlock: startingBlock, toBlock: blockToSyncTo})
+//       .then((events, error) => {
+//         if(error) {
+//           reject(`couldn't get past events from block: ${block}`)
+//         }
+//         var addresses = [...new Set(events.map(event => event.returnValues.account))]
+//         console.log(addresses.length)
+//         resolve(addresses)
+//       })
+//       // .then(twoDArray => {
+//       //   console.log('got all addresses')
+//       //   var flat = []//flatten 2d array of addresses
+//       //   twoDArray.forEach(array => {
+//       //     flat.push(...array)
+//       //   })
+//       //   resolve([...new Set(flat)])//return all unique addresses
+//       // })
+//     })
+//   }
 
-  web3.eth.getBlockNumber()
-  .then(getAllAddresses)
-  .then(addresses => {
-    //console.log(addresses.length)
-    let promises = []
-    addresses.forEach(address => {
-      promises.push(getBalancesOfAddress(address))
-    })
-    Promise.all(promises)
-    .then(balances => {
-      accounts = {}
-      for(var i = 0; i < balances.length; i++){
-        accounts[addresses[i]] = balances[i]
-      }
-      //console.log(accounts)
-      console.log(Math.floor((Date.now() - start) / 1000))
-    })
-  })
+//   web3.eth.getBlockNumber()
+//   .then(getAllAddresses)
+//   .then(addresses => {
+//     //console.log(addresses.length)
+//     let promises = []
+//     addresses.forEach(address => {
+//       promises.push(getBalancesOfAddress(address))
+//     })
+//     Promise.all(promises)
+//     .then(balances => {
+//       accounts = {}
+//       for(var i = 0; i < balances.length; i++){
+//         accounts[addresses[i]] = balances[i]
+//       }
+//       //console.log(accounts)
+//       console.log(Math.floor((Date.now() - start) / 1000))
+//     })
+//   })
+// }
+
+// getBalancesOfAddress = address => {
+//   //console.log(address)
+//   return new Promise((resolve, reject) => {
+//     let balances = {}
+//     var promises = []
+//     var cTokenContract
+//     cTokens.entries().forEach(cToken => {
+//       balances[cToken.address] = {}
+//       cTokenContract = new web3.eth.Contract(cToken.abi, cToken.address)
+//       promises.push(
+//         cTokenContract.methods.balanceOf(address).call()
+//         .then(result => {
+//           //console.log(result)
+//           balances[cToken.address]['cTokenBalance'] = result
+//         })
+//       )
+//     })
+//     Promise.all(promises)
+//     .then(() => {
+//       resolve(balances)
+//     })
+//   })
+// }
+
+getAmountSeized = async address => {
+  //get assets that can be seized
+  const markets = await comptroller.methods.getAssetsIn(address).call()
+  console.log(markets)
 }
 
-getBalancesOfAddress = address => {
-  //console.log(address)
-  return new Promise((resolve, reject) => {
-    let balances = {}
-    var promises = []
-    var cTokenContract
-    cTokens.entries().forEach(cToken => {
-      balances[cToken.address] = {}
-      cTokenContract = new web3.eth.Contract(cToken.abi, cToken.address)
-      promises.push(
-        cTokenContract.methods.balanceOf(address).call()
-        .then(result => {
-          //console.log(result)
-          balances[cToken.address]['cTokenBalance'] = result
-        })
-      )
-    })
-    Promise.all(promises)
-    .then(() => {
-      resolve(balances)
-    })
-  })
-}
-
-const start = Date.now()
-console.log(start)
+// const start = Date.now()
+// console.log(start)
 
 
-web3.currentProvider.on("connect", fullSync)
+web3.currentProvider.on("connect", () => getAmountSeized('0x7a68a38d8670d91c90122817cd0f06212cd4c8c0'))
