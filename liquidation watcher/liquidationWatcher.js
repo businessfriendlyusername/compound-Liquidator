@@ -55,11 +55,11 @@ https.get(url + paramString, res => {
 parseResponse = response => {
   accounts = JSON.parse(response)['accounts']
   accounts.forEach(account => {
-    //console.log(account)
-    if(parseFloat(account['health']['value']) <= 1.5){
-      console.log(account['health']['value'])
-      console.log(account['total_collateral_value_in_eth'])
-      console.log(account['address'])
-    }
+    console.log(account)
+    // if(parseFloat(account['health']['value']) <= 1.5){
+    //   console.log(account['health']['value'])
+    //   console.log(account['total_collateral_value_in_eth'])
+    //   console.log(account['address'])
+    // }
   })
 }

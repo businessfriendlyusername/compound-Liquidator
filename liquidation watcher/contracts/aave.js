@@ -1,6 +1,6 @@
 aave = {
   address: "0x398eC7346DcD622eDc5ae82352F02bE94C62d119",
-  abi: `[
+  abi: [
     {
       "anonymous": false,
       "inputs": [
@@ -1058,7 +1058,7 @@ aave = {
       "stateMutability": "view",
       "type": "function"
     }
-  ]`
+  ]
 }
 
 module.exports = aave
