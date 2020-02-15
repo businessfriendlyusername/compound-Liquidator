@@ -50,6 +50,19 @@ contracts = {
 
   entries(){
     return [this.cZRX, this.cWBTC, this.cUSDC, this.cREP, this.cETH, this.cDAI, this.cBAT]
+  },
+
+  get(symbol){
+    const dict = {
+      cZRX: this.cZRX,
+      cWBTC: this.cWBTC,
+      cUSDC: this.cUSDC,
+      cREP: this.cREP,
+      uETH: this.cETH,
+      cDAI: this.cDAI,
+      cBAT: this.cBAT
+    }
+    return dict[symbol]
   }
 }
 

@@ -5,6 +5,7 @@ const aaveContract = require('../contracts/aave')
 const Web3 = require('web3')
 const net = require('net')
 const logger = require('tracer').console()
+const bigNumber = require('bignumber.js')
 
 const local = "ws://127.0.0.1:8546"
 const infura = "wss://mainnet.infura.io/ws/v3/1e6dafd39f064e1cb74ca7e7115ef345"
@@ -55,17 +56,17 @@ syncData = async () => {
   var promises = []
   
   promises.push(comptroller.methods.closeFactorMantissa().call().then(result => {
-    closeFactor = result
+    var asBigNumber = new bigNumber(result)
+    closeFactor = asBigNumber.shiftedBy(-18)
   }))
   promises.push(comptroller.methods.liquidationIncentiveMantissa().call().then(result => {
-    liquidationIncentive = result
+    var asBigNumber = new bigNumber(result)
+    liquidationIncentive = asBigNumber.shiftedBy(-18)
   }))
   cTokenAddresses.forEach(address => {
     promises.push(syncCToken(address))
   })
-  console.log(promises)
   Promise.all(promises).then(() => {
-    console.log(tokenData)
     return
   })
   .catch((err) => console.log(err))
@@ -77,53 +78,53 @@ syncCToken = cTokenAddress => {
 
     var promises = []
     promises.push(priceOracle.methods.getUnderlyingPrice(cTokenAddress).call().then(price => {
-      tokenData[cTokenAddress].underlyingPriceInEth = price
+      tokenData[cTokenAddress].underlyingPriceInEth = new bigNumber(price)
     }))
     promises.push(cTokenContracts[cTokenAddress].methods.exchangeRateCurrent().call().then(rate => {
-      tokenData[cTokenAddress].exchangeRate = rate
+      tokenData[cTokenAddress].exchangeRate = new bigNumber(rate)
     }))
     var reserveData
     promises.push(aave.methods.getReserveData(underlyingAddress).call().then(data => {
-      reserveData = data
+      reserveData = new bigNumber(data.availableLiquidity)
     }))
   
     Promise.all(promises)
     .then(() => {
-      tokenData[cTokenAddress].flashLoanLiquidity = reserveData.availableLiquidity
+      tokenData[cTokenAddress].flashLoanLiquidity = reserveData
       resolve()
     })
     .catch(reject)
   })
 }
 
-var ethVal = borrow * tokenData[address].underlyingPriceInEth
-if(ethVal > largest){
-  largest = ethVal
-}
 
 getLargestBorrow = address => {
   return new Promise((resolve, reject) => {
     var promises = []
     cTokenAddresses.forEach(cTokenAddress => {
-      cTokenContracts[cTokenAddress].methods.borrowBalanceCurrent(address).call().then(borrow => {
+      promises.push(cTokenContracts[cTokenAddress].methods.borrowBalanceCurrent(address).call().then(borrow => {
         return [borrow, cTokenAddress]
-      })
+      }))
     })
 
     Promise.all(promises).then(borrows => {
-      var largest = 0
-      var largestAsset = null
-      var largestBalance
+      var largestEthVal = new bigNumber(0)
+      var largestTokenBalance
+      var assetCTokenAddress
       borrows.forEach(borrow => {
         //each borrow is an array: [tokensBorrowed, cTokenAddress]
-        var ethVal = borrow * tokenData[borrow[1]].underlyingPriceInEth
-        if(ethVal > largest){
-          largest = ethVal
-          largestAsset = borrow[1]
-          largestBalance = borrow[0]
+        logger.debug(borrow[0], tokenData[borrow[1]].underlyingPriceInEth.toString(), borrow[1])
+        var borrowed = new bigNumber(borrow[0])
+        var underlying = new bigNumber(tokenData[borrow[1]].underlyingPriceInEth)
+        var ethVal = borrowed.times(underlying).shiftedBy(-18)
+        if(ethVal.isGreaterThan(largestEthVal)){
+          largestEthVal = ethVal
+          largestTokenBalance = borrowed
+          assetCTokenAddress = borrow[1]
         }
       })
-      resolve([largestAsset, largestBalance, largest])
+      logger.debug(largestTokenBalance, assetCTokenAddress, largestEthVal.toString())
+      resolve([largestTokenBalance, assetCTokenAddress, largestEthVal])
     })
     .catch(reject)
   })
@@ -133,45 +134,42 @@ getLargestCollateral = address => {
   return new Promise((resolve, reject) => {
     var promises = []
     cTokenAddresses.forEach(cTokenAddress => {
-      cTokenContracts[cTokenAddress].methods.balanceOfUnderlying(address).call().then(borrow => {
+      cTokenContracts[cTokenAddress].methods.balanceOfUnderlying(address).call().then(collateral => {
         return [collateral, cTokenAddress]
       })
     })
 
     Promise.all(promises).then(collateralAssets => {
-      var largest = 0
-      var largestAsset = null
-      var largestBalance
+      var largestEthVal = 0
+      var largestTokenBalance
+      var assetCTokenAddress
       collateralAssets.forEach(asset => {
-        //each asset is an array: [tokensBorrowed, cTokenAddress]
-        var ethVal = asset * tokenData[asset[1]].underlyingPriceInEth
-        if(ethVal > largest){
-          largest = ethVal
-          largestAsset = asset[1]
-          largestBalance = asset[0]
+        //each asset is an array: [collateralTokens, cTokenAddress]
+        var bigNumAsset = new bigNumber(asset[0])
+        var underlying = new bigNumber(tokenData[asset[1]].underlyingPriceInEth)
+        var ethVal = bigNumAsset.times(underlying).shiftedBy(-18)
+        if(ethVal > largestEthVal){
+          largestEthVal = ethVal
+          largestTokenBalance = bigNumAsset
+          assetCTokenAddress = asset[1]
         }
       })
-      resolve([largestAsset, largestBalance, largest])
+      resolve([largestTokenBalance, assetCTokenAddress, largestEthVal])
     })
     .catch(reject)
   })
 }
 
-calculateProfit = address => {
+calculateProfit = async address => {
   var [largestBorrowBalance, largestBorrowCTokenAddress, largestBorrowInEth] = await getLargestBorrow(address)
   var [largestCollateralBalance, largestCollateralCTokenAddress, largestCollateralInEth] = await getLargestCollateral(address)
   var flashLoanLiquidity = tokenData[borrowCTokenAddress].flashLoanLiquidity
-  //TODO calculateRepaidAndSeized()
+  //if(largestBorrowInEth * closeFactor)
 }
-
-calculateRepaidAndSeized = () => {
-  //calculate amount to repay loan and how much collateral we will seize
-  if(largestBorrowInEth * closeFactor * liquidationIncentive){//TODO make this work with bignumber.js
-
-  }
-}
-
 
 
 logger.debug('waiting for web3 connections')
-web3.currentProvider.on("connect", () => getLargestBorrow("0x606420fc17e08ce7d85a5068cede5542c0e47128"))
+web3.currentProvider.on("connect", async () => {
+  await syncData()
+  await getLargestBorrow("0x606420fc17e08ce7d85a5068cede5542c0e47128")
+})
