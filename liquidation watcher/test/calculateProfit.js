@@ -171,10 +171,9 @@ calculateProfit = async address => {
   var [largestBorrowBalance, largestBorrowCTokenAddress, largestBorrowInEth] = await getLargestBorrow(address)
   var [largestCollateralBalance, largestCollateralCTokenAddress, largestCollateralInEth] = await getLargestCollateral(address)
   var flashLoanLiquidity = tokenData[largestBorrowCTokenAddress].flashLoanLiquidity
-  console.log(flashLoanLiquidity.toString())
-  const liquidateByBorrow = largestBorrowInEth.times(closeFactor).times(liquidationIncentive)//The amount in wei gained by liquidating the largest borrow
-  var amountRepaid = largestBorrowBalance
 
+
+  //calculate how many tokens to repay
   var params = {
     largestBorrowBalance,
     borrowPriceInEth: tokenData[largestBorrowCTokenAddress].underlyingPriceInEth,
@@ -183,20 +182,30 @@ calculateProfit = async address => {
     largestCollateralBalance,
     flashLoanLiquidity
   }
-  amountOfUnderlyingToRepayCompoundLoan(params)
+  var tokensRepaid = amountOfUnderlyingToRepayCompoundLoan(params)
 
-  // //if there is not enough collateral in a single asset for us to seize the max amount by liquidating the largest borrow,
-  // //calculate the minimum we have to pay back to seize the maximum amount
-  // console.log(liquidateByBorrow.toString(), largestCollateralInEth.toString())
-  // if(liquidateByBorrow.gt(largestCollateralInEth)){
-  //   var numerator = tokenData[largestBorrowCTokenAddress].underlyingPriceInEth.times(liquidationIncentive)
-  //   var denominator = tokenData[largestCollateralCTokenAddress].exchangeRate.times(tokenData[largestCollateralCTokenAddress].underlyingPriceInEth)
-  //   var ratio = numerator.div(denominator)
-  //   amountRepaid = largestCollateralBalance.div(ratio).shiftedBy(-18)
-  //   console.log(largestBorrowCTokenAddress, largestCollateralCTokenAddress)
-  //   console.log(tokenData[largestCollateralCTokenAddress].exchangeRate.toString(), tokenData[largestCollateralCTokenAddress].underlyingPriceInEth.toString())
-  //   console.log(numerator.toString(), denominator.toString(), ratio.toString(), amountRepaid.toString())
-  // }
+  //calculate how many tokens we will seize
+  params.amountRepaid = tokensRepaid
+  params.liquidationIncentive = liquidationIncentive
+  params.repayPriceInEth = tokenData[largestBorrowCTokenAddress].underlyingPriceInEth
+  params.seizePriceInEth = tokenData[largestCollateralCTokenAddress].underlyingPriceInEth
+  var tokensSeized = underlyingTokensSeized(params)
+}
+
+/*
+  Calculate how much of the underlying currency we will seize
+  params: {
+    bigNumber: amountRepaid //The amount of the collateral token we will repay
+    bigNumber: liquidationIncentive //The multiple of bonus collateral you get for liquidating 1.01 < x < 1.2
+    bigNumber: repayPriceInEth //The price in eth of the token we will repay
+    bigNumber: seizePriceInEth //The price in eth of the token we will seize
+  }
+*/
+
+underlyingTokensSeized = params => {
+  var ratio = params.repayPriceInEth.div(params.seizePriceInEth)
+  var rate = ratio.times(params.liquidationIncentive)
+  return rate.times(params.amountRepaid)
 }
 
 /*
@@ -234,7 +243,7 @@ amountOfUnderlyingToRepayCompoundLoan = (params) => {
     repayAmount = params.flashLoanLiquidity
     repayAmountInEth = repayAmount.times(params.borrowPriceInEth)
   }
-  return [repayAmount, repayAmountInEth]
+  return repayAmount
 }
 
 
