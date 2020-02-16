@@ -2,6 +2,7 @@ const cTokens = require('../contracts/cTokens')
 const comptrollerContract = require('../contracts/comptrollerContract')
 const priceOracleContract = require('../contracts/priceOracleContract')
 const aaveContract = require('../contracts/aave')
+const uniswapContracts = require('../contracts/uniswap')
 const Web3 = require('web3')
 const net = require('net')
 const logger = require('tracer').console()
@@ -14,17 +15,10 @@ const startingBlock = 7722506 //when the first compound contract deployed
 const provider = new Web3(infura, net)
 const web3 = new Web3(provider)
 
-// const cZRX = new web3.eth.Contract(cTokens.cZRX.abi, cTokens.cZRX.address)
-// const cWBTC = new web3.eth.Contract(cTokens.cWBTC.abi, cTokens.cWBTC.address)
-// const cUSDC = new web3.eth.Contract(cTokens.cUSDC.abi, cTokens.cUSDC.address)
-// const cSAI = new web3.eth.Contract(cTokens.cSAI.abi, cTokens.cSAI.address)
-// const cREP = new web3.eth.Contract(cTokens.cREP.abi, cTokens.cREP.address)
-// const cETH = new web3.eth.Contract(cTokens.cETH.abi, cTokens.cETH.address)
-// const cDAI = new web3.eth.Contract(cTokens.cDAI.abi, cTokens.cDAI.address)
-// const cBAT = new web3.eth.Contract(cTokens.cBAT.abi, cTokens.cBAT.address)
 const comptroller = new web3.eth.Contract(comptrollerContract.abi, comptrollerContract.address)
 const priceOracle = new web3.eth.Contract(priceOracleContract.abi, priceOracleContract.address)
 const aave = new web3.eth.Contract(aaveContract.abi, aaveContract.address)
+const uniswapFactory = new web3.eth.Contract(uniswapContracts.factoryABI, uniswapContracts.factoryAddress)
 const flashLoanRate = 35 //the flash loan rate in basis points -- flash loan fee is always 35 basis points as far as i can tell
 
 
@@ -190,8 +184,27 @@ calculateProfit = async address => {
   params.repayPriceInEth = tokenData[largestBorrowCTokenAddress].underlyingPriceInEth
   params.seizePriceInEth = tokenData[largestCollateralCTokenAddress].underlyingPriceInEth
   var tokensSeized = underlyingTokensSeized(params)
+
+  //calculate how much it will cost to repay the flash loan
+  var flashLoanRatePercent = new bigNumber(flashLoanRate)
+  flashLoanRatePercent = flashLoanRatePercent.shiftedBy(-4).plus(1)
+  var flashLoanRepay = tokensRepaid.times(flashLoanRatePercent)
+
+
 }
 
+/*
+  Calculate the cost (in the seized token) to get enough of the borrowed token to repay our flash loan
+  params: {
+    bigNumber: flashLoanRepay //the amount of the borrowed token to repay our flash loan (denominated by quantum)
+    bigNumber: buyToken //the address of the token we are buying (the token we took out our flash loan in and repaid the compound loan in)
+    bigNumber: sellToken /the address of the token we are selling (the token we seized from repaying the compound loan)
+  }
+*/
+
+uniswapCost = params => {
+
+}
 /*
   Calculate how much of the underlying currency we will seize
   params: {
@@ -246,9 +259,16 @@ amountOfUnderlyingToRepayCompoundLoan = (params) => {
   return repayAmount
 }
 
+getUniswapContracts = async () => {
+  cTokenAddresses.forEach(async cTokenAddress => {
+    tokenData.uniswapAddress = await uniswapFactory.methods.getExchange(tokenData[cTokenAddress].underlyingAddress).call()
+  })
+  logger.debug('got uniswap contracts')
+}
 
 logger.debug('waiting for web3 connections')
 web3.currentProvider.on("connect", async () => {
   await syncData()
+  await getUniswapContracts()
   await calculateProfit("0x606420fc17e08ce7d85a5068cede5542c0e47128")
 })
