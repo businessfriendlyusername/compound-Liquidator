@@ -120,7 +120,7 @@ getLargestBorrow = address => {
         var borrowed = new bigNumber(borrow[0])
         var underlying = new bigNumber(tokenData[borrow[1]].underlyingPriceInEth)
         var ethVal = borrowed.times(underlying)
-        console.log(ethVal.toString())
+        //console.log(ethVal.toString())
         if(ethVal.isGreaterThan(largestEthVal)){
           largestEthVal = ethVal
           largestTokenBalance = borrowed
@@ -171,24 +171,71 @@ calculateProfit = async address => {
   var [largestBorrowBalance, largestBorrowCTokenAddress, largestBorrowInEth] = await getLargestBorrow(address)
   var [largestCollateralBalance, largestCollateralCTokenAddress, largestCollateralInEth] = await getLargestCollateral(address)
   var flashLoanLiquidity = tokenData[largestBorrowCTokenAddress].flashLoanLiquidity
+  console.log(flashLoanLiquidity.toString())
   const liquidateByBorrow = largestBorrowInEth.times(closeFactor).times(liquidationIncentive)//The amount in wei gained by liquidating the largest borrow
   var amountRepaid = largestBorrowBalance
 
-  //if there is not enough collateral in a single asset for us to seize the max amount by liquidating the largest borrow,
-  //calculate the minimum we have to pay back to seize the maximum amount
-  console.log(liquidateByBorrow.toString(), largestCollateralInEth.toString())
-  if(liquidateByBorrow.gt(largestCollateralInEth)){
-    var numerator = tokenData[largestBorrowCTokenAddress].underlyingPriceInEth.times(liquidationIncentive)
-    var denominator = tokenData[largestCollateralCTokenAddress].exchangeRate.times(tokenData[largestCollateralCTokenAddress].underlyingPriceInEth)
-    var ratio = numerator.div(denominator)
-    amountRepaid = largestCollateralBalance.div(ratio).shiftedBy(-18)
-    console.log(largestBorrowCTokenAddress, largestCollateralCTokenAddress)
-    console.log(tokenData[largestCollateralCTokenAddress].exchangeRate.toString(), tokenData[largestCollateralCTokenAddress].underlyingPriceInEth.toString())
-    console.log(numerator.toString(), denominator.toString(), ratio.toString(), amountRepaid.toString())
+  var params = {
+    largestBorrowBalance,
+    borrowPriceInEth: tokenData[largestBorrowCTokenAddress].underlyingPriceInEth,
+    closeFactor,
+    collateralPriceInEth: tokenData[largestCollateralCTokenAddress].underlyingPriceInEth,
+    largestCollateralBalance,
+    flashLoanLiquidity
   }
+  amountOfUnderlyingToRepayCompoundLoan(params)
+
+  // //if there is not enough collateral in a single asset for us to seize the max amount by liquidating the largest borrow,
+  // //calculate the minimum we have to pay back to seize the maximum amount
+  // console.log(liquidateByBorrow.toString(), largestCollateralInEth.toString())
+  // if(liquidateByBorrow.gt(largestCollateralInEth)){
+  //   var numerator = tokenData[largestBorrowCTokenAddress].underlyingPriceInEth.times(liquidationIncentive)
+  //   var denominator = tokenData[largestCollateralCTokenAddress].exchangeRate.times(tokenData[largestCollateralCTokenAddress].underlyingPriceInEth)
+  //   var ratio = numerator.div(denominator)
+  //   amountRepaid = largestCollateralBalance.div(ratio).shiftedBy(-18)
+  //   console.log(largestBorrowCTokenAddress, largestCollateralCTokenAddress)
+  //   console.log(tokenData[largestCollateralCTokenAddress].exchangeRate.toString(), tokenData[largestCollateralCTokenAddress].underlyingPriceInEth.toString())
+  //   console.log(numerator.toString(), denominator.toString(), ratio.toString(), amountRepaid.toString())
+  // }
 }
 
- 
+/*
+  Compute the maximum amount that we can liquidate
+  params: {
+    bigNumber: largestBorrowBalance //The most valuable (in ETH) outStanding borrow on the account denominated in the quantum of each token
+    bigNumber: borrowPriceInEth // the amount of ether you get for 1 quantum of the borrowed token
+    bigNumber: largestCollateralBalance //the most valuable (in ETH) collateral on the account denominated in the quantum of the underlying asset
+    bigNumber: collateralPriceInEth //The amount of ether you get for 1 quantum of the collateral token
+    bigNumber: closeFactor //The max amount of the largest Borrow Balance that can be repaid in liquidation 0.1 < x < 0.9
+    bigNumber: liquidationIncentive //The multiple of bonus collateral you get for liquidating 1.01 < x < 1.2
+    bigNumber: flashLoanLiquidity //the amount of liquidity available for a flash loan in the borrowed currency
+  }
+*/
+
+amountOfUnderlyingToRepayCompoundLoan = (params) => {
+  console.log(` largestBorrowBalance: ${params.largestBorrowBalance}
+  closeFactor: ${params.closeFactor}
+  borrowPriceInEth: ${params.borrowPriceInEth}`)
+  var repayAmount = params.largestBorrowBalance.times(params.closeFactor)//assume we can liquidate the max amount
+  var repayAmountInEth = repayAmount.times(params.borrowPriceInEth)
+  var collateralTotalInEth = params.largestCollateralBalance.times(params.collateralPriceInEth)
+  console.log(repayAmountInEth.toString(), collateralTotalInEth.toString())
+
+
+  //if the eth value of the amount that can be seized by repaying the largest borrow is more than the ETH value of the largest collateral asset
+  //(i.e. we would be overpaying if we paid the default: largest borrow * close factor) calculate the maximum we can liquidate without overpaying
+  if(repayAmountInEth.gt(collateralTotalInEth)){
+    var ratio = borrowPriceInEth.div(collateralPriceInEth)
+    var denominator = liquidationIncentive.times(ratio)
+    repayAmount = params.largestCollateralBalance.div(denominator)//Underlying seized / (liq incentive * ratio)
+    repayAmountInEth = repayAmount.times(params.borrowPriceInEth)
+  }
+  if(repayAmount > params.flashLoanLiquidity){//check if aave has enough liquidity to repay this
+    repayAmount = params.flashLoanLiquidity
+    repayAmountInEth = repayAmount.times(params.borrowPriceInEth)
+  }
+  return [repayAmount, repayAmountInEth]
+}
 
 
 logger.debug('waiting for web3 connections')
