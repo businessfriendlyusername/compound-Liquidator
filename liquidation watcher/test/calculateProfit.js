@@ -29,15 +29,16 @@ const flashLoanRate = 35 //the flash loan rate in basis points -- flash loan fee
 cTokenAddresses = []
 cTokenContracts = {}
 var tokenData = {}
-
+cTokenToUnderlying = {}
 
 cTokens.entries().forEach(cToken => {
   
   cTokenAddresses.push(cToken.address)
+  cTokenToUnderlying[cToken.address] = cToken.underlyingAddress
   cTokenContracts[cToken.address] = new web3.eth.Contract(cToken.abi, cToken.address)
-  tokenData[cToken.address] = {
-    underlyingAddress : cToken.underlyingAddress,
-    underlyingPriceInEth : null,
+  tokenData[cToken.underlyingAddress] = {
+    cTokenAddress : cToken.underlyingAddress,
+    priceInEth : null,
     exchangeRate : null,
     flashLoanLiquidity : null
   }
@@ -62,7 +63,7 @@ syncData = async () => {
   cTokenAddresses.forEach(address => {
     promises.push(syncCToken(address))
   })
-  Promise.all(promises).then(getUniswapReserves)
+  Promise.all(promises)
   .then(() => {
     return
   })
@@ -71,15 +72,15 @@ syncData = async () => {
 
 syncCToken = cTokenAddress => {
   return new Promise((resolve,reject) => {
-    const underlyingAddress = tokenData[cTokenAddress].underlyingAddress
+    const underlyingAddress = cTokenToUnderlying[cTokenAddress]
 
     var promises = []
     promises.push(priceOracle.methods.getUnderlyingPrice(cTokenAddress).call().then(price => {
-      tokenData[cTokenAddress].underlyingPriceInEth = new bigNumber(price).shiftedBy(-18)
-      //console.log(tokenData[cTokenAddress].underlyingPriceInEth.toString())
+      tokenData[underlyingAddress].priceInEth = new bigNumber(price).shiftedBy(-18)
+      //console.log(tokenData[cTokenAddress].priceInEth.toString())
     }))
     promises.push(cTokenContracts[cTokenAddress].methods.exchangeRateCurrent().call().then(rate => {
-      tokenData[cTokenAddress].exchangeRate = new bigNumber(rate).shiftedBy(-18)
+      tokenData[underlyingAddress].exchangeRate = new bigNumber(rate).shiftedBy(-18)
       //console.log(tokenData[cTokenAddress].exchangeRate.toString())
     }))
     var reserveData
@@ -90,7 +91,7 @@ syncCToken = cTokenAddress => {
   
     Promise.all(promises)
     .then(() => {
-      tokenData[cTokenAddress].flashLoanLiquidity = reserveData
+      tokenData[underlyingAddress].flashLoanLiquidity = reserveData
       resolve()
     })
     .catch(reject)
@@ -113,9 +114,9 @@ getLargestBorrow = address => {
       var assetCTokenAddress
       borrows.forEach(borrow => {
         //each borrow is an array: [tokensBorrowed, cTokenAddress]
-        //logger.debug(borrow[0], tokenData[borrow[1]].underlyingPriceInEth.toString(), borrow[1])
+        //logger.debug(borrow[0], tokenData[borrow[1]].priceInEth.toString(), borrow[1])
         var borrowed = new bigNumber(borrow[0])
-        var underlying = new bigNumber(tokenData[borrow[1]].underlyingPriceInEth)
+        var underlying = new bigNumber(tokenData[cTokenToUnderlying[borrow[1]]].priceInEth)
         var ethVal = borrowed.times(underlying)
         //console.log(ethVal.toString())
         if(ethVal.isGreaterThan(largestEthVal)){
@@ -146,9 +147,9 @@ getLargestCollateral = address => {//TODO THIS IS NOT WORKING PROPERLY
       var assetCTokenAddress
       collateralAssets.forEach(asset => {
         //each asset is an array: [collateralTokens, cTokenAddress]
-        //logger.debug(asset[0], tokenData[asset[1]].underlyingPriceInEth.toString(), asset[1])
+        //logger.debug(asset[0], tokenData[asset[1]].priceInEth.toString(), asset[1])
         var bigNumAsset = new bigNumber(asset[0])
-        var underlying = new bigNumber(tokenData[asset[1]].underlyingPriceInEth)
+        var underlying = new bigNumber(tokenData[cTokenToUnderlying[asset[1]]].priceInEth)
         var ethVal = bigNumAsset.times(underlying)
         //console.log(ethVal.toString(), asset[1])
         if(ethVal.isGreaterThan(largestEthVal)){
@@ -167,15 +168,16 @@ getLargestCollateral = address => {//TODO THIS IS NOT WORKING PROPERLY
 calculateProfit = async address => {
   var [largestBorrowBalance, largestBorrowCTokenAddress, largestBorrowInEth] = await getLargestBorrow(address)
   var [largestCollateralBalance, largestCollateralCTokenAddress, largestCollateralInEth] = await getLargestCollateral(address)
-  var flashLoanLiquidity = tokenData[largestBorrowCTokenAddress].flashLoanLiquidity
-
+  var largestBorrowUnderlyingAddress = cTokenToUnderlying[largestBorrowCTokenAddress]
+  var largestCollateralUnderlyingAddress = cTokenToUnderlying[largestCollateralCTokenAddress]
+  var flashLoanLiquidity = tokenData[largestBorrowUnderlyingAddress].flashLoanLiquidity
 
   //calculate how many tokens to repay
   var params = {
     largestBorrowBalance,
-    borrowPriceInEth: tokenData[largestBorrowCTokenAddress].underlyingPriceInEth,
+    borrowPriceInEth: tokenData[largestBorrowUnderlyingAddress].priceInEth,
     closeFactor,
-    collateralPriceInEth: tokenData[largestCollateralCTokenAddress].underlyingPriceInEth,
+    collateralPriceInEth: tokenData[largestCollateralUnderlyingAddress].priceInEth,
     largestCollateralBalance,
     flashLoanLiquidity
   }
@@ -184,8 +186,8 @@ calculateProfit = async address => {
   //calculate how many tokens we will seize
   params.amountRepaid = tokensRepaid
   params.liquidationIncentive = liquidationIncentive
-  params.repayPriceInEth = tokenData[largestBorrowCTokenAddress].underlyingPriceInEth
-  params.seizePriceInEth = tokenData[largestCollateralCTokenAddress].underlyingPriceInEth
+  params.repayPriceInEth = tokenData[largestBorrowUnderlyingAddress].priceInEth
+  params.seizePriceInEth = tokenData[largestCollateralUnderlyingAddress].priceInEth
   var tokensSeized = underlyingTokensSeized(params)
 
   //calculate how much it will cost to repay the flash loan
@@ -194,24 +196,31 @@ calculateProfit = async address => {
   var flashLoanRepay = tokensRepaid.times(flashLoanRatePercent)
 
   params.flashLoanRepay = flashLoanRepay
-  params.buyToken = tokenData[largestBorrowCTokenAddress].underlyingAddress
-  params.sellTokenExchange = tokenData[largestCollateralCTokenAddress].uniswapAddress
-  uniswapCost(params)
-
+  params.outputToken = largestBorrowUnderlyingAddress
+  params.inputToken = largestCollateralUnderlyingAddress
+  var tokenExpenses = await uniswapCost(params)
+  var tokenProfit = tokensSeized.minus(tokenExpenses)
+  var ethProfit = tokenProfit.times(tokenData[largestCollateralUnderlyingAddress].priceInEth)
+  console.log(ethProfit.toString())
+  return ethProfit
 }
 
 /*
   Calculate the cost (in the seized token) to get enough of the borrowed token to repay our flash loan
   params: {
     bigNumber: flashLoanRepay //the amount of the borrowed token to repay our flash loan (denominated by quantum)
-    string: buyToken //the address of the token we are buying (the token we took out our flash loan in and repaid the compound loan in)
-    string: sellToken //the address of the token we are selling (the token we seized from repaying the compound loan)
+    string: outputToken //the address of the token we are buying (the token we took out our flash loan in and repaid the compound loan in)
+    string: inputToken //the address of the token we are selling (the token we seized from repaying the compound loan)
   }
 */
-const MAX_VAL = web3.utils.toBN(new bigNumber("99999999999999999116006660312803031653508"))
+
 uniswapCost = async params => {
-  const marketDetails
+  const marketDetails = uniswap.getMarketDetails(tokenData[params.inputToken].uniswapReserves, tokenData[params.outputToken].uniswapReserves)
+  const tradeDetails = uniswap.getTradeDetails(uniswap.TRADE_EXACT.OUTPUT, web3.utils.toBN(params.flashLoanRepay.decimalPlaces(0)), marketDetails)
+  console.log("niggers" + tradeDetails.inputAmount.amount.toString())
+  return tradeDetails.inputAmount.amount
 }
+
 /*
   Calculate how much of the underlying currency we will seize
   params: {
@@ -266,15 +275,16 @@ amountOfUnderlyingToRepayCompoundLoan = (params) => {
   return repayAmount
 }
 
-getUniswapReserves = async () => {
+syncUniswapReserves = async () => {
   for(var i = 0; i < cTokenAddresses.length; i++) {
-    if(tokenData[cTokenAddresses[i]].underlyingAddress === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"){//ether has no uniswap address
-      tokenData[cTokenAddresses[i]].uniswapAddress = null
-      tokenData[cTokenAddresses[i]].uniswapReserves = undefined
+    var underlying = cTokenToUnderlying[cTokenAddresses[[i]]]
+    if(underlying === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"){//ether has no uniswap address
+      tokenData[underlying].uniswapAddress = null
+      tokenData[underlying].uniswapReserves = undefined
       continue
     }
-    tokenData[cTokenAddresses[i]].uniswapAddress = await uniswapFactory.methods.getExchange(tokenData[cTokenAddresses[i]].underlyingAddress).call()
-    tokenData[cTokenAddresses[i]].uniswapReserves = await uniswap.getTokenReserves(tokenData[cTokenAddresses[i]].underlyingAddress)
+    tokenData[underlying].uniswapAddress = await uniswapFactory.methods.getExchange(underlying).call()
+    tokenData[underlying].uniswapReserves = await uniswap.getTokenReserves(underlying)
   }
   logger.debug('got uniswap contracts')
   return
@@ -283,5 +293,6 @@ getUniswapReserves = async () => {
 logger.debug('waiting for web3 connections')
 web3.currentProvider.on("connect", async () => {
   await syncData()
+  await syncUniswapReserves()
   await calculateProfit("0x606420fc17e08ce7d85a5068cede5542c0e47128")
 })
