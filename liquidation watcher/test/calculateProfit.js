@@ -7,6 +7,7 @@ const Web3 = require('web3')
 const net = require('net')
 const logger = require('tracer').console()
 const bigNumber = require('bignumber.js')
+const uniswap = require('@uniswap/sdk')
 
 const local = "ws://127.0.0.1:8546"
 const infura = "wss://mainnet.infura.io/ws/v3/1e6dafd39f064e1cb74ca7e7115ef345"
@@ -28,6 +29,7 @@ const flashLoanRate = 35 //the flash loan rate in basis points -- flash loan fee
 cTokenAddresses = []
 cTokenContracts = {}
 var tokenData = {}
+
 
 cTokens.entries().forEach(cToken => {
   
@@ -60,7 +62,8 @@ syncData = async () => {
   cTokenAddresses.forEach(address => {
     promises.push(syncCToken(address))
   })
-  Promise.all(promises).then(() => {
+  Promise.all(promises).then(getUniswapReserves)
+  .then(() => {
     return
   })
   .catch((err) => console.log(err))
@@ -190,6 +193,10 @@ calculateProfit = async address => {
   flashLoanRatePercent = flashLoanRatePercent.shiftedBy(-4).plus(1)
   var flashLoanRepay = tokensRepaid.times(flashLoanRatePercent)
 
+  params.flashLoanRepay = flashLoanRepay
+  params.buyToken = tokenData[largestBorrowCTokenAddress].underlyingAddress
+  params.sellTokenExchange = tokenData[largestCollateralCTokenAddress].uniswapAddress
+  uniswapCost(params)
 
 }
 
@@ -197,13 +204,13 @@ calculateProfit = async address => {
   Calculate the cost (in the seized token) to get enough of the borrowed token to repay our flash loan
   params: {
     bigNumber: flashLoanRepay //the amount of the borrowed token to repay our flash loan (denominated by quantum)
-    bigNumber: buyToken //the address of the token we are buying (the token we took out our flash loan in and repaid the compound loan in)
-    bigNumber: sellToken /the address of the token we are selling (the token we seized from repaying the compound loan)
+    string: buyToken //the address of the token we are buying (the token we took out our flash loan in and repaid the compound loan in)
+    string: sellToken //the address of the token we are selling (the token we seized from repaying the compound loan)
   }
 */
-
-uniswapCost = params => {
-
+const MAX_VAL = web3.utils.toBN(new bigNumber("99999999999999999116006660312803031653508"))
+uniswapCost = async params => {
+  const marketDetails
 }
 /*
   Calculate how much of the underlying currency we will seize
@@ -259,16 +266,22 @@ amountOfUnderlyingToRepayCompoundLoan = (params) => {
   return repayAmount
 }
 
-getUniswapContracts = async () => {
-  cTokenAddresses.forEach(async cTokenAddress => {
-    tokenData.uniswapAddress = await uniswapFactory.methods.getExchange(tokenData[cTokenAddress].underlyingAddress).call()
-  })
+getUniswapReserves = async () => {
+  for(var i = 0; i < cTokenAddresses.length; i++) {
+    if(tokenData[cTokenAddresses[i]].underlyingAddress === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"){//ether has no uniswap address
+      tokenData[cTokenAddresses[i]].uniswapAddress = null
+      tokenData[cTokenAddresses[i]].uniswapReserves = undefined
+      continue
+    }
+    tokenData[cTokenAddresses[i]].uniswapAddress = await uniswapFactory.methods.getExchange(tokenData[cTokenAddresses[i]].underlyingAddress).call()
+    tokenData[cTokenAddresses[i]].uniswapReserves = await uniswap.getTokenReserves(tokenData[cTokenAddresses[i]].underlyingAddress)
+  }
   logger.debug('got uniswap contracts')
+  return
 }
 
 logger.debug('waiting for web3 connections')
 web3.currentProvider.on("connect", async () => {
   await syncData()
-  await getUniswapContracts()
   await calculateProfit("0x606420fc17e08ce7d85a5068cede5542c0e47128")
 })
