@@ -290,9 +290,19 @@ syncUniswapReserves = async () => {
   return
 }
 
-logger.debug('waiting for web3 connections')
-web3.currentProvider.on("connect", async () => {
-  await syncData()
-  await syncUniswapReserves()
-  await calculateProfit("0x606420fc17e08ce7d85a5068cede5542c0e47128")
-})
+module.exports = {
+  syncUniswapReserves,
+  amountOfUnderlyingToRepayCompoundLoan,
+  underlyingTokensSeized,
+  uniswapCost,
+  calculateProfit,
+  getLargestCollateral,
+  getLargestBorrow
+}
+
+// logger.debug('waiting for web3 connections')
+// web3.currentProvider.on("connect", async () => {
+//   await syncData()
+//   await syncUniswapReserves()
+//   await calculateProfit("0x606420fc17e08ce7d85a5068cede5542c0e47128")
+// })
