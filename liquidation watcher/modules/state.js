@@ -1,62 +1,97 @@
 const cTokens = require('../contracts/cTokens')
 const comptroller = require('../contracts/comptrollerContract')
 const priceOracle = require('../contracts/priceOracleContract')
-const sortedMap = require('collections/sorted-map')
 
-class State{
-  //accounts is just an array of accounts that comply with accountSchema.js
-  //blockNumber is the last block everything was sync'd at
-  //liquidate is the function to be called when an underwater account is found
-  constructor(web3, logger, accounts, blockNumber, liquidate){
+class State {
+  constructor(web3){
     this.web3 = web3
-    this.liquidate = liquidate
-    this.logger = logger
-    this.blockNumber = blockNumber
-    this.accountList = new sortedMap()
-    this.accountList.contentCompare = compare
-    accounts.forEach(account => {
-      this.accountList.add(account.address, account.balances)
-    })
-    this.cZRX = new web3.eth.Contract(cTokens.cZRX.abi, cTokens.cZRX.address)
-    this.cWBTC = new web3.eth.Contract(cTokens.cWBTC.abi, cTokens.cWBTC.address)
-    this.cUSDC = new web3.eth.Contract(cTokens.cUSDC.abi, cTokens.cUSDC.address)
-    this.cSAI = new web3.eth.Contract(cTokens.cSAI.abi, cTokens.cSAI.address)
-    this.cREP = new web3.eth.Contract(cTokens.cREP.abi, cTokens.cREP.address)
-    this.cETH = new web3.eth.Contract(cTokens.cETH.abi, cTokens.cETH.address)
-    this.cDAI = new web3.eth.Contract(cTokens.cDAI.abi, cTokens.cDAI.address)
-    this.cBAT = new web3.eth.Contract(cTokens.cBAT.abi, cTokens.cBAT.address)
-    this.comptroller = new web3.eth.Contract(comptroller.abi, comptroller.address)
-    this.priceOracle = new web3.eth.Contract(priceOracle.abi, priceOracle.address)
   }
 
-  sync(){
+  init = async () => {
+
+    this.data = {}
+
+    //initialize contracts
+    this.comptroller = new this.web3.eth.Contract(comptrollerContract.abi, comptrollerContract.address)
+    this.priceOracle = new this.web3.eth.Contract(priceOracleContract.abi, priceOracleContract.address)
+    this.aave = new this.web3.eth.Contract(aaveContract.abi, aaveContract.address)
+    this.uniswapFactory = new this.web3.eth.Contract(uniswapContracts.factoryABI, uniswapContracts.factoryAddress)
+    this.flashLoanRate = 35 //the flash loan rate in basis points -- flash loan fee is always 35 basis points as far as i can tell
+
+    this.cTokenAddresses = []
+    this.cTokenContracts = {}
+    this.tokenData = {}
+    this.cTokenToUnderlying = {}
+    cTokens.entries().forEach(cToken => {
+  
+      this.cTokenAddresses.push(cToken.address)
+      this.cTokenToUnderlying[cToken.address] = cToken.underlyingAddress
+      this.cTokenContracts[cToken.address] = new web3.eth.Contract(cToken.abi, cToken.address)
+      this.tokenData[cToken.underlyingAddress] = {
+        cTokenAddress : cToken.underlyingAddress,
+        priceInEth : null,
+        exchangeRate : null,
+        flashLoanLiquidity : null
+      }
+      if(cToken.underlyingAddress === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")//ether has no uniswap address
+        this.tokenData[cToken.underlyingAddress].uniswapAddress = null
+      else
+        this.tokenData[cToken.underlyingAddress].uniswapAddress = await this.uniswapFactory.methods.getExchange(cToken.underlyingAddress).call()
+    })
+    await this.sync()
+  }
+  
+  sync = async () => {
+    logger.debug('started syncData()')
     var promises = []
-
-    promises.push()
-    promises.push()
-    promises.push()
-    promises.push()
-    promises.push()
-    promises.push()
-    promises.push()
-    promises.push()
-
+    
+    promises.push(this.comptroller.methods.closeFactorMantissa().call().then(result => {
+      var asBigNumber = new bigNumber(result)
+      this.closeFactor = asBigNumber.shiftedBy(-18)
+    }))
+    promises.push(this.comptroller.methods.liquidationIncentiveMantissa().call().then(result => {
+      var asBigNumber = new bigNumber(result)
+      this.liquidationIncentive = asBigNumber.shiftedBy(-18)
+    }))
+    this.cTokenAddresses.forEach(address => {
+      promises.push(syncCToken(address))
+    })
+    Promise.all(promises)
+    .then(() => {
+      return
+    })
+    .catch((err) => console.log(err))
   }
 
-  fullSync(){
-    this.web3.eth.getBlockNumber()
-    .then(blockToSyncTo => {
-      
+  syncCToken = cTokenAddress => {
+    return new Promise((resolve,reject) => {
+      const underlyingAddress = this.cTokenToUnderlying[cTokenAddress]
+  
+      var promises = []
+      promises.push(this.priceOracle.methods.getUnderlyingPrice(cTokenAddress).call().then(price => {
+        this.tokenData[underlyingAddress].priceInEth = new bigNumber(price).shiftedBy(-18)
+      }))
+      promises.push(this.cTokenContracts[cTokenAddress].methods.exchangeRateCurrent().call().then(rate => {
+        this.tokenData[underlyingAddress].exchangeRate = new bigNumber(rate).shiftedBy(-18)
+      }))
+      promises.push(this.aave.methods.getReserveData(underlyingAddress).call().then(data => {
+        this.tokenData[underlyingAddress].flashLoanLiquidity = new bigNumber(data.availableLiquidity)
+      }))
+      promises.push(uniswap.getTokenReserves(underlyingAddress).then(reserves => {
+        this.tokenData[underlyingAddress].uniswapReserves = reserves
+      }))
+    
+      Promise.all(promises)
+      .then(resolve)
+      .catch(reject)
     })
   }
 
-  sort(){
-
+  export = () => {
+    return {
+      flashLoanRate: this.flashLoanRate,
+      
+    }
   }
-}
-
-
-
-compare = (left, right) => {
 
 }

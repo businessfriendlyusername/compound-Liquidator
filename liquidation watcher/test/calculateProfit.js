@@ -132,7 +132,7 @@ getLargestBorrow = address => {
   })
 }
 
-getLargestCollateral = address => {//TODO THIS IS NOT WORKING PROPERLY
+getLargestCollateral = address => {
   return new Promise((resolve, reject) => {
     var promises = []
     cTokenAddresses.forEach(cTokenAddress => {
