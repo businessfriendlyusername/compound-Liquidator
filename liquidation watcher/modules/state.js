@@ -1,13 +1,17 @@
 const cTokens = require('../contracts/cTokens')
-const comptroller = require('../contracts/comptrollerContract')
-const priceOracle = require('../contracts/priceOracleContract')
+const comptrollerContract = require('../contracts/comptrollerContract')
+const priceOracleContract = require('../contracts/priceOracleContract')
+const aaveContract = require('../contracts/aave')
+const uniswapContracts = require('../contracts/uniswap')
+const logger = require('tracer').console()
+const bigNumber = require('bn.js')
 
 class State {
   constructor(web3){
     this.web3 = web3
   }
 
-  init = async () => {
+  async init(){
 
     this.data = {}
 
@@ -22,7 +26,7 @@ class State {
     this.cTokenContracts = {}
     this.tokenData = {}
     this.cTokenToUnderlying = {}
-    cTokens.entries().forEach(cToken => {
+    await cTokens.entries().forEach(async cToken => {
   
       this.cTokenAddresses.push(cToken.address)
       this.cTokenToUnderlying[cToken.address] = cToken.underlyingAddress
@@ -41,7 +45,7 @@ class State {
     await this.sync()
   }
   
-  sync = async () => {
+  async sync(){
     logger.debug('started syncData()')
     var promises = []
     
@@ -63,7 +67,7 @@ class State {
     .catch((err) => console.log(err))
   }
 
-  syncCToken = cTokenAddress => {
+  syncCToken(cTokenAddress){
     return new Promise((resolve,reject) => {
       const underlyingAddress = this.cTokenToUnderlying[cTokenAddress]
   
@@ -87,11 +91,13 @@ class State {
     })
   }
 
-  export = () => {
+  export(){
     return {
       flashLoanRate: this.flashLoanRate,
-      
+      tokenData: this.tokenData,
     }
   }
 
 }
+
+module.exports = State

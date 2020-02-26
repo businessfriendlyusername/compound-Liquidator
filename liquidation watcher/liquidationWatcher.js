@@ -1,16 +1,18 @@
 const comptrollerABI = require("./contracts/comptrollerContract")
-//const init = require("./init")
+const init = require("./init")
 const fs = require("fs")
 const queryString = require('querystring')
 const https = require('https')
+const State = require('./modules/state')
+const bigNumber = require('bn.js')
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~Initialization~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// const web3 = init.web3
-// const log = init.log
-// const startingBlock = 7722506 //when the first compound contract deployed 
+const web3 = init.web3
+const log = init.log
+const startingBlock = 7722506 //when the first compound contract deployed 
 
-// var comptroller = new web3.eth.Contract(comptrollerABI.abi)
-// comptroller.options.address = comptrollerABI.address
+var comptroller = new web3.eth.Contract(comptrollerABI.abi)
+comptroller.options.address = comptrollerABI.address
 
 
 
@@ -37,29 +39,40 @@ const https = require('https')
 // })
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~pull accounts from compound's API~~~~~~~~~~~~~~~~~~~~~~~~~~
-const url = "https://api.compound.finance/api/v2/account?"
-const requestParams = {
-  "page_size": 100,
-  "max_health[value]": "1.5",
-  "min_borrow_value_in_eth[value]": "0.5"
-}
+// const url = "https://api.compound.finance/api/v2/account?"
+// const requestParams = {
+//   "page_size": 100,
+//   "max_health[value]": "1.5",
+//   "min_borrow_value_in_eth[value]": "0.5"
+// }
 
-const paramString = queryString.stringify(requestParams)
-console.log(url + paramString)
-https.get(url + paramString, res => {
-  let data = ''
-  res.on('data', chunk => data += chunk)
-  res.on('end', () => parseResponse(data))
-})
+// const paramString = queryString.stringify(requestParams)
+// console.log(url + paramString)
+// https.get(url + paramString, res => {
+//   let data = ''
+//   res.on('data', chunk => data += chunk)
+//   res.on('end', () => parseResponse(data))
+// })
 
-parseResponse = response => {
-  accounts = JSON.parse(response)['accounts']
-  accounts.forEach(account => {
-    console.log(account)
-    // if(parseFloat(account['health']['value']) <= 1.5){
-    //   console.log(account['health']['value'])
-    //   console.log(account['total_collateral_value_in_eth'])
-    //   console.log(account['address'])
-    // }
-  })
-}
+// parseResponse = response => {
+//   accounts = JSON.parse(response)['accounts']
+//   accounts.forEach(account => {
+//     console.log(account)
+//     // if(parseFloat(account['health']['value']) <= 1.5){
+//     //   console.log(account['health']['value'])
+//     //   console.log(account['total_collateral_value_in_eth'])
+//     //   console.log(account['address'])
+//     // }
+//   })
+// }
+
+// var state = new State(web3)
+// state.init()
+// .then(console.log(state.export()))
+
+var x = new bigNumber('1234567')
+var scalar = new bigNumber('10')
+var exp = new bigNumber('6')
+scalar = scalar.pow(exp)
+//console.log(scalar.toString())
+console.log(x.div(scalar).toString())
