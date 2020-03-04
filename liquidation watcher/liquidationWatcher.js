@@ -4,7 +4,8 @@ const fs = require("fs")
 const queryString = require('querystring')
 const https = require('https')
 const State = require('./modules/state')
-const bigNumber = require('bn.js')
+const bigNumber = require('bignumber.js')
+const calculateProfit = require('./modules/calculateProfit')
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~Initialization~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const web3 = init.web3
@@ -42,7 +43,7 @@ comptroller.options.address = comptrollerABI.address
 // const url = "https://api.compound.finance/api/v2/account?"
 // const requestParams = {
 //   "page_size": 100,
-//   "max_health[value]": "1.5",
+//   "max_health[value]": "1.05",
 //   "min_borrow_value_in_eth[value]": "0.5"
 // }
 
@@ -66,13 +67,10 @@ comptroller.options.address = comptrollerABI.address
 //   })
 // }
 
-// var state = new State(web3)
-// state.init()
-// .then(console.log(state.export()))
 
-var x = new bigNumber('1234567')
-var scalar = new bigNumber('10')
-var exp = new bigNumber('6')
-scalar = scalar.pow(exp)
-//console.log(scalar.toString())
-console.log(x.div(scalar).toString())
+
+var state = new State(web3)
+state.init()
+.then(() => calculateProfit("0xbe2c70e8cfaa74c1bab733d5bb6beae3152c827b", state.export()))
+
+
