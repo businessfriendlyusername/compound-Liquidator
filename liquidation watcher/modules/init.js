@@ -1,5 +1,4 @@
 const fs = require('fs')
-const logging = require('./modules/logging')
 const Web3 = require('web3')
 const net = require('net')
 const sleep = require('system-sleep')
