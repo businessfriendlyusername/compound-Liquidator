@@ -1,3 +1,6 @@
+const bigNumber = require('bignumber.js')
+
+
 getLargestBorrow = (address, state) => {
   return new Promise((resolve, reject) => {
     var promises = []
@@ -63,3 +66,18 @@ getLargestCollateral = (address, state) => {
     .catch(reject)
   })
 }
+
+getAccountData = async (account, state) => {
+  var data = await Promise.all([getLargestBorrow(account, state), getLargestCollateral(account, state)])
+  var [largestBorrowBalance, largestBorrowCTokenAddress] = data[0]
+  var [largestCollateralBalance, largestCollateralCTokenAddress] = data[1]
+  return {
+    address: account,
+    largestBorrowBalance,
+    largestBorrowCTokenAddress,
+    largestCollateralBalance,
+    largestCollateralCTokenAddress
+  }
+}
+
+module.exports = getAccountData

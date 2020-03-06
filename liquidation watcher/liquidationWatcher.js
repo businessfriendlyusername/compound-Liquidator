@@ -1,12 +1,12 @@
 const comptrollerABI = require("./contracts/comptrollerContract")
-const init = require("./init")
+const init = require("./modules/init")
 const fs = require("fs")
 const queryString = require('querystring')
 const https = require('https')
 const State = require('./modules/state')
 const bigNumber = require('bignumber.js')
 const calculateProfit = require('./modules/calculateProfit')
-
+const getAccountData = require('./modules/getAccountData')
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~Initialization~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const web3 = init.web3
 const log = init.log
@@ -71,6 +71,5 @@ comptroller.options.address = comptrollerABI.address
 
 var state = new State(web3)
 state.init()
-.then(() => calculateProfit("0xbe2c70e8cfaa74c1bab733d5bb6beae3152c827b", state.export()))
-
-
+.then(() => getAccountData("0xbe2c70e8cfaa74c1bab733d5bb6beae3152c827b", state.export()))
+.then(account => calculateProfit(account, state.export()))

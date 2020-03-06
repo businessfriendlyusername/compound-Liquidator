@@ -2,21 +2,15 @@ const fs = require('fs')
 const Web3 = require('web3')
 const net = require('net')
 const sleep = require('system-sleep')
+const log = require('tracer').console()
 
 
 const startingBlock = 7722506 //when the first compound contract deployed 
 
-const config = JSON.parse(fs.readFileSync(__dirname + "/config.json", "utf8"))
+const config = JSON.parse(fs.readFileSync(__dirname + "/../config.json", "utf8"))
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~logger initialization~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-const loggerOutFile = config.logToFile ? config.logFile : false
-const log = new logging(
-  outputPath=loggerOutFile, 
-  console=config.logToConsole, 
-  verbosity=config.loggingVerbosity)
-log.info(`Starting up...`)
-log.info(`Logger initialized with verbosity: ${config.loggingVerbosity}`);
-log.info(`Logger outputting to: ${config.logFile}`);
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Ethereum node connection~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 let provider = 'fuck you javascript scope eat my ass'
