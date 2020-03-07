@@ -13,7 +13,6 @@ class State {
   }
 
   async init(){
-
     //initialize contracts
     this.comptroller = new this.web3.eth.Contract(comptrollerContract.abi, comptrollerContract.address)
     this.priceOracle = new this.web3.eth.Contract(priceOracleContract.abi, priceOracleContract.address)
@@ -45,7 +44,6 @@ class State {
     }
     logger.debug('done with init, now sync')
     await this.sync()
-    return
   }
   
   async sync(){
