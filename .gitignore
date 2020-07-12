@@ -4,3 +4,5 @@
 *.log
 doc_revisions.txt
 Documentation/Formulas.aux
+Documentation/Development/DesignDoc.aux
+.vscode/settings.json
