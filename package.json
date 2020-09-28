@@ -17,13 +17,14 @@
   },
   "homepage": "https://github.com/businessfriendlyusername/compound-Liquidator#readme",
   "dependencies": {
-    "@uniswap/sdk": "^3.0.0",
+    "@uniswap/sdk": "^3.0.1",
     "bignumber.js": "^9.0.0",
     "chai": "^4.2.0",
     "ganache-core": "^2.10.2",
+    "godmode-for-test": "0.0.3",
     "openzeppelin-solidity": "^3.1.0",
     "tracer": "^1.1.2",
-    "web3": "^1.2.9"
+    "web3": "^1.2.11"
   },
   "devDependencies": {
     "@nomiclabs/buidler": "^1.3.8"
